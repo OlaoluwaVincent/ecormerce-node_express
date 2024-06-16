@@ -7,7 +7,6 @@ export interface UserType extends UserTokenType {
 }
 
 export interface UserTokenType {
-  id: string;
   username: string;
   fullname: string;
   _id: Types.ObjectId;

@@ -2,13 +2,12 @@ import express, { Request, Response, NextFunction, Application } from 'express';
 import errorHandler from './middlewares/errorHandler';
 import config from './utils/config';
 import routes from './routes';
-import excludedRoutes from './middlewares/excludedRoutes';
 
 const app: Application = express();
 const PORT = process.env.PORT || 9000;
 
 // Connect to DB
-config.connect();
+// config.connect();
 
 // Middleware to parse JSON
 app.use(express.json());
@@ -17,9 +16,6 @@ app.use(express.json());
 app.get('/', (req: Request, res: Response) => {
   res.send('Hello, TypeScript with Express!');
 });
-
-// Global routes
-app.use(excludedRoutes);
 
 // Routes
 app.use('/api', routes);

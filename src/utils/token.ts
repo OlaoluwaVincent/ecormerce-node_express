@@ -12,7 +12,7 @@ function generateToken(user: UserTokenType) {
 }
 
 function verifyToken(token: string) {
-  return jwt.verify(token, secret!);
+  return jwt.verify(token, secret!) as UserTokenType;
 }
 
 export { generateToken, verifyToken };

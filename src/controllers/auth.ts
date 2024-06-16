@@ -9,7 +9,7 @@ const createUser = async (req: Request, res: Response) => {
     const { fullname, email, username, password } = req.body;
 
     // Check if the user already exists
-    const existingUser = await User.findOne({ email }).exec();
+    const existingUser = await User.findOne({ email });
 
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
@@ -32,7 +32,7 @@ const createUser = async (req: Request, res: Response) => {
     // Set the token in the response header
 
     // Respond with success message
-    res.status(200).json({ message: 'User added successfully' });
+    res.status(201).json({ message: 'User added successfully' });
   } catch (err: any) {
     res
       .status(500)
@@ -65,8 +65,8 @@ const authUser = async (req: Request, res: Response) => {
 
 const getAllusers = async (_req: Request, res: Response) => {
   try {
-    let user = await User.find();
-    res.status(200).json(user);
+    // let user = await User.find();
+    res.status(200).json({ users: [] });
   } catch (err: any) {
     res
       .status(500)
@@ -102,6 +102,7 @@ const deleteUser = async (req: Request, res: Response) => {
 
 const updateUser = async (req: Request, res: Response) => {
   User.findByIdAndUpdate({ _id: req.params.id }, { $set: { $eq: req.body } })
+    .select('-hashedPassword')
     .then((user) =>
       res.status(200).json({ message: 'User updated successfully', user })
     )
