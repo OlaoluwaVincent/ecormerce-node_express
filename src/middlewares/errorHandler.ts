@@ -6,10 +6,11 @@ const errorHandler = (
   res: Response,
   next: NextFunction
 ) => {
-  const statusCode = res.statusCode || 500;
-  res.status(statusCode);
-  res.json({
-    message: err.message,
+  const statusCode = (err as any).statusCode || 500;
+  const message = err.message || 'Internal Server Error';
+
+  res.status(statusCode).json({
+    message: message,
     stack: process.env.NODE_ENV === 'production' ? null : err.stack,
   });
 };

@@ -1,4 +1,4 @@
-import { NextFunction, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { CloudinaryImages, UserRequest } from '../utils/typings';
 import {
   destroyExistingImage,
@@ -6,117 +6,119 @@ import {
   uploadImages,
 } from '../utils/cloudinary';
 import prisma from '../../prisma/prisma';
-import { Prisma } from '@prisma/client';
+import NotFoundException from '../exceptions/NotFoundException';
+import Exception from '../exceptions/Exception';
+import HttpStatus from '../exceptions/httpStatus';
+import BadRequestException from '../exceptions/BadRequestException';
+import asyncHandler from '../exceptions/AsyncHandler';
 
-const create = async (req: UserRequest, res: Response) => {
+const create = asyncHandler(async (req: UserRequest, res: Response) => {
   const { name, price, discount, description, quantity } = req.body;
 
   if (!name || !price || !discount || !description || !quantity) {
-    res.status(400).json({ message: 'All fields required' });
+    throw new Exception(
+      HttpStatus.BAD_REQUEST,
+      'Please provide all required fields'
+    );
   }
 
   const images = req.files as Array<Express.Multer.File>;
   const user = req.user;
 
-  try {
-    if (images) {
-      const uploadedImages = await uploadImages(images);
-
-      const product = await prisma.product.create({
-        data: {
-          images: uploadedImages,
-          name,
-          price: Number(price),
-          discount: Number(discount),
-          description,
-          quantity: Number(quantity),
-          User: { connect: { id: user?.id } },
-        },
-      });
-
-      if (!product) {
-        return res.status(400).json({ message: 'Failed to create product' });
-      }
-
-      return res.status(201).json(product);
-    } else {
-      return res.status(400).json({ message: 'No image file provided' });
-    }
-  } catch (error: any) {
-    console.error('Error uploading image to Cloudinary:', error);
-    res.status(500).json({ message: error.message });
+  if (!images) {
+    throw new NotFoundException('Please provide all required fields');
   }
-};
 
-const getProducts = async (_req: UserRequest, res: Response) => {
-  try {
-    const products = await prisma.product.findMany();
+  const uploadedImages = await uploadImages(images);
 
-    return res.status(200).json(products);
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
+  const product = await prisma.product.create({
+    data: {
+      images: uploadedImages,
+      name,
+      price: Number(price),
+      discount: Number(discount),
+      description,
+      quantity: Number(quantity),
+      User: { connect: { id: user?.id } },
+    },
+  });
+
+  if (!product) {
+    throw new BadRequestException('Failed to create product');
   }
-};
-// Define your updateProduct handler
-const updateProduct = async (
-  req: UserRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const { name, price, discount, description, quantity } = req.body;
-    const deletedImages: CloudinaryImages[] = req.body.deletedImages;
-    const images = req.files as Array<Express.Multer.File>;
 
-    const product = await prisma.product.findUnique({
-      where: { id: req.params.id, userId: req.user?.id },
-    });
+  return res.status(HttpStatus.CREATED).json(product);
+});
 
-    if (!product) {
-      throw new Error('Product not found');
-    }
+const getProducts = asyncHandler(async (_req: UserRequest, res: Response) => {
+  const products = await prisma.product.findMany();
 
-    if (deletedImages.length) {
-      destroyExistingImage(deletedImages);
-    }
+  return res.status(HttpStatus.OK).json(products);
+});
 
-    let uploadedImages = [] as {
-      url: string;
-      public_id: string;
-    }[];
+const updateProduct = asyncHandler(async (req: UserRequest, res: Response) => {
+  const { name, price, discount, description, quantity } = req.body;
+  const deletedImages: CloudinaryImages[] = req.body.deletedImages;
+  const images = req.files as Array<Express.Multer.File>;
 
-    if (images) {
-      uploadedImages = await uploadImages(images);
-    }
+  const product = await prisma.product.findUnique({
+    where: { id: req.params.id, userId: req.user?.id },
+  });
 
-    const filtered = transformData(product.images).filter(
-      (dItem) =>
-        !deletedImages.some((eItem) => eItem.public_id === dItem.public_id)
-    );
-
-    const newImages = [...uploadedImages, ...filtered];
-
-    const updatedProduct = await prisma.product.update({
-      where: { id: product.id },
-      data: {
-        images: newImages,
-        name: name || product.name,
-        description: description || product.description,
-        price: Number(price) || product.price,
-        discount: Number(discount) || product.discount,
-        quantity: Number(quantity) || product.quantity,
-      },
-    });
-
-    if (!updatedProduct) {
-      return res.status(400).json({ message: 'Failed to update product' });
-    }
-
-    res.json({ message: 'Product updated successfully', updatedProduct });
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
+  if (!product) {
+    throw new Exception(HttpStatus.BAD_REQUEST, 'Product was not found');
   }
-};
+
+  if (deletedImages.length) {
+    destroyExistingImage(deletedImages);
+  }
+
+  let uploadedImages = [] as {
+    url: string;
+    public_id: string;
+  }[];
+
+  if (images) {
+    uploadedImages = await uploadImages(images);
+  }
+
+  const filtered = transformData(product.images).filter(
+    (dItem) =>
+      !deletedImages.some((eItem) => eItem.public_id === dItem.public_id)
+  );
+
+  const newImages = [...uploadedImages, ...filtered];
+
+  const updatedProduct = await prisma.product.update({
+    where: { id: product.id },
+    data: {
+      images: newImages,
+      name: name || product.name,
+      description: description || product.description,
+      price: Number(price) || product.price,
+      discount: Number(discount) || product.discount,
+      quantity: Number(quantity) || product.quantity,
+    },
+  });
+
+  if (!updatedProduct) {
+    throw new BadRequestException('Failed to upload product');
+  }
+
+  res.json({ message: 'Product updated successfully', updatedProduct });
+});
+
+const getProduct = asyncHandler(async (req: Request, res: Response) => {
+  const product = await prisma.product.findUnique({
+    where: { id: req.params.id },
+  });
+
+  if (!product) {
+    throw new NotFoundException(`Product was not found ${req.params.id}`);
+  }
+
+  res.status(HttpStatus.OK).json(product);
+});
 
 export default {
   create,
