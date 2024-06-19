@@ -1,17 +1,23 @@
 import { Request } from 'express';
 
 export interface UserType extends UserTokenType {
-  hashedPassword: String;
-  createdAt: Date;
-  updatedAt: Date;
+  hashedPassword: string;
 }
 
 export interface UserTokenType {
+  id: string;
+  name: string;
   username: string;
-  fullname: string;
-  _id: Types.ObjectId;
+  email: string;
+  role: Role;
 }
 
 export interface UserRequest extends Request {
-  user?: UserType;
+  user?: UserTokenType;
+}
+
+export enum Role {
+  USER = 'USER',
+  ADMIN = 'ADMIN',
+  EDITOR = 'EDITOR',
 }

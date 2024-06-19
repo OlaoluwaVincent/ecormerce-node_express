@@ -1,7 +1,7 @@
 import { NextFunction, Response } from 'express';
-import { UserRequest } from '../utils/typings';
-import User from '../models/user';
+import { Role, UserRequest, UserType } from '../utils/typings';
 import { verifyToken } from '../utils/token';
+import prisma from '../../prisma/prisma';
 
 const authenticate = async (
   req: UserRequest,
@@ -17,14 +17,22 @@ const authenticate = async (
       .json({ message: 'Unauthorized Access, please login' });
 
   const decoded = verifyToken(token);
-  const user = await User.findById(decoded._id).select('-hashedPassword');
+  const user = await prisma.user.findFirst({ where: { id: decoded.id } });
 
   if (!user) {
     return res.status(401).json({ message: 'Unauthorized: User not found' });
   }
 
-  req.user = user;
+  req.user = user as UserType;
   next();
 };
+export function authorizeRoles(...roles: Role[]) {
+  return (req: UserRequest, res: Response, next: NextFunction) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    next();
+  };
+}
 
 export default authenticate;

@@ -1,15 +1,19 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
-import User from '../models/user';
+import prisma from '../../prisma/prisma';
 import { generateToken } from '../utils/token';
-import { UserRequest } from '../utils/typings';
+import { Role, UserRequest } from '../utils/typings';
 
 const createUser = async (req: Request, res: Response) => {
   try {
     const { fullname, email, username, password } = req.body;
 
+    if (!fullname || !email || !username || !password) {
+      return res.status(400).json({ message: 'All fields required' });
+    }
+
     // Check if the user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await prisma.user.findUnique({ where: { email } });
 
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
@@ -20,19 +24,22 @@ const createUser = async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // Create new user instance
-    const user = new User({
-      username,
-      fullname,
-      hashedPassword, // Store hashed password with the field name defined in your schema
+    const user = await prisma.user.create({
+      data: {
+        username,
+        name: fullname,
+        email,
+        role: 'USER',
+        hashedPassword,
+      },
     });
 
-    // Save the user to the database
-    await user.save();
+    if (!user) res.status(400).json({ message: 'Failed to create account' });
 
-    // Set the token in the response header
+    const { hashedPassword: pword, ...rest } = user;
 
     // Respond with success message
-    res.status(201).json({ message: 'User added successfully' });
+    res.status(201).json({ message: 'User added successfully', user: rest });
   } catch (err: any) {
     res
       .status(500)
@@ -44,14 +51,13 @@ const authUser = async (req: Request, res: Response) => {
   try {
     const { username, password } = req.body;
 
-    const user = await User.findOne({ username: username });
+    const user = await prisma.user.findUnique({ where: { username } });
 
     if (!user) return res.status(404).json('Wrong Username or Password');
-    const userObj = user.toObject();
 
-    if (!bcrypt.compareSync(password, userObj.hashedPassword))
+    if (!bcrypt.compareSync(password, user.hashedPassword))
       return res.status(404).json('Wrong Username or Password');
-    const { hashedPassword, createdAt, updatedAt, ...rest } = userObj;
+    const { hashedPassword, ...rest } = user;
 
     const token = generateToken(rest);
 
@@ -65,8 +71,16 @@ const authUser = async (req: Request, res: Response) => {
 
 const getAllusers = async (_req: Request, res: Response) => {
   try {
-    // let user = await User.find();
-    res.status(200).json({ users: [] });
+    let user = await prisma.user.findMany({
+      select: {
+        email: true,
+        id: true,
+        role: true,
+        username: true,
+        name: true,
+      },
+    });
+    res.status(200).json({ users: user });
   } catch (err: any) {
     res
       .status(500)
@@ -76,7 +90,9 @@ const getAllusers = async (_req: Request, res: Response) => {
 
 const getSpecificUser = async (req: Request, res: Response) => {
   try {
-    const user = (await User.findOne({ _id: req.params.id })) as any;
+    const user = await prisma.user.findFirst({
+      where: { id: req.params.id },
+    });
 
     if (!user) return res.status(404).json('user does not exists');
 
@@ -88,23 +104,36 @@ const getSpecificUser = async (req: Request, res: Response) => {
   }
 };
 
-const deleteUser = async (req: Request, res: Response) => {
-  User.findByIdAndDelete({ _id: req.params.id })
-    .then((user) =>
-      res.status(200).json({ message: 'User deleted successfully', user })
-    )
-    .catch((err: any) =>
-      res
-        .status(500)
-        .json({ message: 'Internal server error', err: err.message })
-    );
+const deleteUser = async (req: UserRequest, res: Response) => {
+  const { user } = req;
+  try {
+    if (user?.id === req.params.id || user?.role === Role.ADMIN) {
+      const deleted = await prisma.user.delete({
+        where: { id: req.params.id },
+      });
+      if (!deleted) res.status(400).json({ message: 'Failed to Delete' });
+
+      return res.status(200).json({ message: 'User has been deleted' });
+    } else {
+      return res.status(401).json({ message: 'You do not own this resource' });
+    }
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
 };
 
 const updateUser = async (req: Request, res: Response) => {
-  User.findByIdAndUpdate({ _id: req.params.id }, { $set: { $eq: req.body } })
-    .select('-hashedPassword')
+  const { username, name } = req.body;
+  prisma.user
+    .update({
+      where: { id: req.params.id },
+      data: {
+        name,
+        username,
+      },
+    })
     .then((user) =>
-      res.status(200).json({ message: 'User updated successfully', user })
+      res.status(200).json({ message: 'User updated successfully' })
     )
     .catch((err: any) =>
       res
@@ -115,25 +144,28 @@ const updateUser = async (req: Request, res: Response) => {
 
 const changePassword = async (req: Request, res: Response) => {
   try {
-    const { currentPassword, newPassword, ConfirmnewPassword } = req.body;
+    const { currentPassword, newPassword } = req.body;
 
-    const user = (await User.findOne({ _id: req.params.id })) as any;
-    console.log(user);
+    const user = await prisma.user.findFirst({ where: { id: req.params.id } });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
-    if (!bcrypt.compareSync(currentPassword, user.password))
+    if (!bcrypt.compare(currentPassword, user?.hashedPassword))
       return res.status(404).json({ message: 'Wrong password', user });
 
     if (newPassword.length < 8)
       return res.status(404).json('Password must be at least 8 digits');
 
-    if (newPassword.localeCompare(ConfirmnewPassword))
-      return res.status(404).json('New passwords do not match');
-
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
-    user.password = hashedPassword;
 
-    await user.save();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        hashedPassword,
+      },
+    });
 
     res.status(200).json('Password updated successfully');
   } catch (err: any) {

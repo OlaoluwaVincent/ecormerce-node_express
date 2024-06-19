@@ -4,7 +4,7 @@ import config from './config';
 
 const secret: string | null = config.JWT_SECERT ?? null;
 
-function generateToken(user: UserTokenType) {
+function generateToken(user: any) {
   const token = jwt.sign({ ...user }, secret!, {
     expiresIn: '1h',
   });
