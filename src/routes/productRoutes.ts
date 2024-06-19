@@ -6,7 +6,7 @@ import { upload } from '../utils/cloudinary';
 const router: Router = express.Router();
 
 router.get('/', productController.getProducts);
-// router.get('/:id', productController.getSpecificUser);
+router.get('/:id', productController.getProduct);
 router.post(
   '/',
   authenticate,

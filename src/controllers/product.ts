@@ -123,5 +123,6 @@ const getProduct = asyncHandler(async (req: Request, res: Response) => {
 export default {
   create,
   getProducts,
+  getProduct,
   updateProduct,
 };
