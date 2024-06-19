@@ -14,6 +14,13 @@ export interface UserTokenType {
 
 export interface UserRequest extends Request {
   user?: UserTokenType;
+  file?: Express.Multer.File;
+  // files?: Array<Express.Multer.File>;
+}
+
+export interface CloudinaryImages {
+  url: string;
+  public_id: string;
 }
 
 export enum Role {

@@ -29,3 +29,24 @@ coverage
 *.sw?
 
 *.tsbuildinfo
+
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json

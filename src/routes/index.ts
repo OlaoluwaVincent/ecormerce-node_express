@@ -1,6 +1,7 @@
 import express from 'express';
 // import RateLimit from 'express-rate-limit';
 import userRouter from './userRoutes';
+import productRouter from './productRoutes';
 
 const router = express.Router();
 
@@ -13,6 +14,6 @@ const router = express.Router();
 // router.use(limiter);
 
 router.use('/users', userRouter);
-// router.use('/product', productRouter);
+router.use('/products', productRouter);
 
 export default router;

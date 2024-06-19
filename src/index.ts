@@ -1,7 +1,6 @@
 import express, { Request, Response, NextFunction, Application } from 'express';
 import cors from 'cors';
 import errorHandler from './middlewares/errorHandler';
-import config from './utils/config';
 import routes from './routes';
 
 const app: Application = express();
@@ -14,6 +13,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Index Routes
 app.get('/', (req: Request, res: Response) => {
