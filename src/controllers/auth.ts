@@ -1,8 +1,11 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import prisma from '../../prisma/prisma';
-import { generateToken } from '../utils/token';
+import { generateToken, verifyToken } from '../utils/token';
 import { Role, UserRequest } from '../utils/typings';
+import BadRequestException from '../exceptions/BadRequestException';
+import NotFoundException from '../exceptions/NotFoundException';
+import HttpStatus from '../exceptions/httpStatus';
 
 const createUser = async (req: Request, res: Response) => {
   try {
@@ -48,25 +51,23 @@ const createUser = async (req: Request, res: Response) => {
 };
 
 const authUser = async (req: Request, res: Response) => {
-  try {
-    const { username, password } = req.body;
+  const { username, password } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { username } });
+  const user = await prisma.user.findFirst({
+    where: { username },
+  });
 
-    if (!user) return res.status(404).json('Wrong Username or Password');
+  if (!user) throw new BadRequestException('Wrong Username or Password');
 
-    if (!bcrypt.compareSync(password, user.hashedPassword))
-      return res.status(404).json('Wrong Username or Password');
-    const { hashedPassword, ...rest } = user;
+  if (!bcrypt.compareSync(password, user.hashedPassword))
+    throw new BadRequestException('Wrong Username or Password');
 
-    const token = generateToken(rest);
+  const { hashedPassword, ...rest } = user;
 
-    res.status(200).json({ ...rest, token });
-  } catch (err: any) {
-    res
-      .status(500)
-      .json({ message: 'Internal server error', err: err.message });
-  }
+  const token = generateToken(rest);
+  const refreshToken = generateToken(user, '7d');
+
+  res.status(200).json({ ...rest, token, refreshToken });
 };
 
 const getAllusers = async (_req: Request, res: Response) => {
@@ -175,6 +176,37 @@ const changePassword = async (req: Request, res: Response) => {
   }
 };
 
+const refreshTtoken = async (req: Request, res: Response) => {
+  const refresh_token = req.body.refreshToken as string;
+
+  if (!refresh_token) {
+    throw new BadRequestException('Please provide a refresh_token');
+  }
+
+  const userToken = verifyToken(refresh_token);
+  console.log('userToken => ', userToken);
+
+  const user = await prisma.user.findUnique({ where: { id: userToken.id } });
+
+  if (!user) {
+    throw new NotFoundException('User does not exist');
+  }
+
+  let new_refresh_token: string;
+  // Check if the refresh token has expired
+  if (userToken.exp < Math.floor(Date.now() / 1000)) {
+    new_refresh_token = generateToken(user, '7d');
+  } else {
+    new_refresh_token = refresh_token; // Keep the existing refresh token
+  }
+
+  const newToken = generateToken(user);
+
+  res
+    .status(HttpStatus.OK)
+    .json({ ...user, token: newToken, refreshTtoken: new_refresh_token });
+};
+
 export default {
   createUser,
   getAllusers,
@@ -183,4 +215,5 @@ export default {
   deleteUser,
   updateUser,
   changePassword,
+  refreshTtoken,
 };

@@ -15,18 +15,15 @@ import asyncHandler from '../exceptions/AsyncHandler';
 const create = asyncHandler(async (req: UserRequest, res: Response) => {
   const { name, price, discount, description, quantity } = req.body;
 
-  if (!name || !price || !discount || !description || !quantity) {
-    throw new Exception(
-      HttpStatus.BAD_REQUEST,
-      'Please provide all required fields'
-    );
+  if (!name || !price || !description || !quantity) {
+    throw new BadRequestException('Please provide all required fields');
   }
 
   const images = req.files as Array<Express.Multer.File>;
   const user = req.user;
 
   if (!images) {
-    throw new NotFoundException('Please provide all required fields');
+    throw new BadRequestException('Please provide Images');
   }
 
   const uploadedImages = await uploadImages(images);
@@ -50,15 +47,9 @@ const create = asyncHandler(async (req: UserRequest, res: Response) => {
   return res.status(HttpStatus.CREATED).json(product);
 });
 
-const getProducts = asyncHandler(async (_req: UserRequest, res: Response) => {
-  const products = await prisma.product.findMany();
-
-  return res.status(HttpStatus.OK).json(products);
-});
-
 const updateProduct = asyncHandler(async (req: UserRequest, res: Response) => {
   const { name, price, discount, description, quantity } = req.body;
-  const deletedImages: CloudinaryImages[] = req.body.deletedImages;
+  const deletedImages: CloudinaryImages[] = JSON.parse(req.body.deletedImages);
   const images = req.files as Array<Express.Multer.File>;
 
   const product = await prisma.product.findUnique({
@@ -108,6 +99,12 @@ const updateProduct = asyncHandler(async (req: UserRequest, res: Response) => {
   res.json({ message: 'Product updated successfully', updatedProduct });
 });
 
+const getProducts = asyncHandler(async (_req: UserRequest, res: Response) => {
+  const products = await prisma.product.findMany();
+
+  return res.status(HttpStatus.OK).json(products);
+});
+
 const getProduct = asyncHandler(async (req: Request, res: Response) => {
   const product = await prisma.product.findUnique({
     where: { id: req.params.id },
@@ -120,9 +117,36 @@ const getProduct = asyncHandler(async (req: Request, res: Response) => {
   res.status(HttpStatus.OK).json(product);
 });
 
+const deleteProduct = asyncHandler(async (req: Request, res: Response) => {
+  const product = await prisma.product.delete({
+    where: { id: req.params.id },
+  });
+
+  //Transform from JSON_Data
+  const deletedImages = transformData(product.images);
+
+  if (deletedImages.length) {
+    destroyExistingImage(deletedImages);
+  }
+
+  res.status(HttpStatus.OK).json({ message: 'Product Deleted' });
+});
+
+const getUserProducts = asyncHandler(
+  async (req: UserRequest, res: Response) => {
+    const products = await prisma.product.findMany({
+      where: { userId: req.params.id },
+    });
+
+    return res.status(HttpStatus.OK).json(products);
+  }
+);
+
 export default {
   create,
   getProducts,
   getProduct,
   updateProduct,
+  deleteProduct,
+  getUserProducts,
 };

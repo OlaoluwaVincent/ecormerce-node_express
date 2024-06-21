@@ -10,6 +10,7 @@ export interface UserTokenType {
   username: string;
   email: string;
   role: Role;
+  exp: number;
 }
 
 export interface UserRequest extends Request {

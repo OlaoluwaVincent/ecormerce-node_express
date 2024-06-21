@@ -14,8 +14,9 @@ router.get(
 router.get('/:id', userController.getSpecificUser);
 router.post('/register', userController.createUser);
 router.post('/login', userController.authUser);
+router.post('/refresh-token', userController.refreshTtoken);
+router.put('/change-password/:id', authenticate, userController.changePassword);
 router.put('/:id', authenticate, userController.updateUser);
 router.delete('/:id', authenticate, userController.deleteUser);
-router.put('/change-password/:id', authenticate, userController.changePassword);
 
 export default router;
