@@ -15,8 +15,8 @@ function generateToken(user: any, duration: string | number = '1h') {
 function verifyToken(token: string) {
   try {
     return jwt.verify(token, secret!) as UserTokenType;
-  } catch (err) {
-    throw new BadRequestException('Invalid token');
+  } catch (err: any) {
+    throw new BadRequestException(err.message);
   }
 }
 

@@ -6,6 +6,7 @@ import { Role, UserRequest } from '../utils/typings';
 import BadRequestException from '../exceptions/BadRequestException';
 import NotFoundException from '../exceptions/NotFoundException';
 import HttpStatus from '../exceptions/httpStatus';
+import asyncHandler from '../exceptions/AsyncHandler';
 
 const createUser = async (req: Request, res: Response) => {
   try {
@@ -50,7 +51,7 @@ const createUser = async (req: Request, res: Response) => {
   }
 };
 
-const authUser = async (req: Request, res: Response) => {
+const authUser = asyncHandler(async (req: Request, res: Response) => {
   const { username, password } = req.body;
 
   const user = await prisma.user.findFirst({
@@ -62,13 +63,23 @@ const authUser = async (req: Request, res: Response) => {
   if (!bcrypt.compareSync(password, user.hashedPassword))
     throw new BadRequestException('Wrong Username or Password');
 
-  const { hashedPassword, ...rest } = user;
+  const { hashedPassword, refreshToken, ...rest } = user;
 
   const token = generateToken(rest);
-  const refreshToken = generateToken(user, '7d');
+
+  const refresh_Token = generateToken(rest, '7d');
+
+  await prisma.user.update({
+    where: {
+      id: user.id,
+    },
+    data: {
+      refreshToken: refresh_Token,
+    },
+  });
 
   res.status(200).json({ ...rest, token, refreshToken });
-};
+});
 
 const getAllusers = async (_req: Request, res: Response) => {
   try {
@@ -176,36 +187,41 @@ const changePassword = async (req: Request, res: Response) => {
   }
 };
 
-const refreshTtoken = async (req: Request, res: Response) => {
+const refreshToken = asyncHandler(async (req: Request, res: Response) => {
   const refresh_token = req.body.refreshToken as string;
-
   if (!refresh_token) {
-    throw new BadRequestException('Please provide a refresh_token');
+    return new BadRequestException('Please provide a refresh_token');
   }
 
   const userToken = verifyToken(refresh_token);
-  console.log('userToken => ', userToken);
 
   const user = await prisma.user.findUnique({ where: { id: userToken.id } });
 
   if (!user) {
     throw new NotFoundException('User does not exist');
   }
+  const { hashedPassword, refreshToken, ...rest } = user;
 
   let new_refresh_token: string;
   // Check if the refresh token has expired
   if (userToken.exp < Math.floor(Date.now() / 1000)) {
-    new_refresh_token = generateToken(user, '7d');
+    new_refresh_token = generateToken(rest, '7d');
+    prisma.user.update({
+      where: { id: user.id },
+      data: {
+        refreshToken: new_refresh_token,
+      },
+    });
   } else {
     new_refresh_token = refresh_token; // Keep the existing refresh token
   }
 
-  const newToken = generateToken(user);
+  const newToken = generateToken(rest);
 
   res
     .status(HttpStatus.OK)
-    .json({ ...user, token: newToken, refreshTtoken: new_refresh_token });
-};
+    .json({ ...rest, token: newToken, refreshToken: new_refresh_token });
+});
 
 export default {
   createUser,
@@ -215,5 +231,5 @@ export default {
   deleteUser,
   updateUser,
   changePassword,
-  refreshTtoken,
+  refreshToken,
 };
