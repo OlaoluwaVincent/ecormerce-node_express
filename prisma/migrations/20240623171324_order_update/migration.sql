@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Transaction" ALTER COLUMN "transactionId" SET DATA TYPE BIGINT,
+ALTER COLUMN "customerId" SET DATA TYPE BIGINT;

@@ -20,4 +20,10 @@ function verifyToken(token: string) {
   }
 }
 
-export { generateToken, verifyToken };
+function generateUniqueReference() {
+  const timestamp = Date.now(); // Current timestamp in milliseconds
+  const randomNum = Math.floor(Math.random() * 100000); // Random number between 0 and 99999
+  return `txn_${timestamp}_${randomNum}`;
+}
+
+export { generateToken, verifyToken, generateUniqueReference };

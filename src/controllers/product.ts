@@ -99,10 +99,72 @@ const updateProduct = asyncHandler(async (req: UserRequest, res: Response) => {
   res.json({ message: 'Product updated successfully', updatedProduct });
 });
 
-const getProducts = asyncHandler(async (_req: UserRequest, res: Response) => {
-  const products = await prisma.product.findMany();
+const getProducts = asyncHandler(async (req: UserRequest, res: Response) => {
+  const { page, price, sort, range, discount } = req.query as {
+    sort: string;
+    price: string;
+    page: string;
+    range: string;
+    discount: string;
+  };
 
-  return res.status(HttpStatus.OK).json(products);
+  // Default values
+  const pageNumber = parseInt(page) || 1;
+  const productPerPage = 1;
+  const skip = (pageNumber - 1) * productPerPage;
+  const maxPrice = parseFloat(range) || null;
+  const hasDiscount = !!discount;
+
+  // Create a filter object based on the status query parameter
+  const filter: any = {};
+
+  if (maxPrice) {
+    filter.price = { lte: maxPrice };
+  }
+  if (hasDiscount) {
+    filter.discount = { gte: 0 };
+  }
+
+  // Create an orderBy object for sorting
+  const orderBy: any[] = [];
+  if (sort) {
+    orderBy.push({ createdAt: sort });
+  }
+  if (price) {
+    orderBy.push({ price: price });
+  }
+
+  // Fetch products with filtering, sorting, and pagination
+  const products = await prisma.product.findMany({
+    where: filter,
+    orderBy: orderBy.length ? orderBy : undefined,
+    skip: skip,
+    take: productPerPage,
+  });
+
+  // Get the total count of products for pagination
+  const totalOrders = await prisma.product.count({ where: filter });
+
+  // Calculate total pages
+  const totalPages = Math.ceil(totalOrders / productPerPage);
+
+  // Determine if there are next and previous pages
+  const hasNextPage = pageNumber < totalPages;
+  const hasPreviousPage = pageNumber > 1;
+
+  res.status(HttpStatus.OK).json({
+    products,
+    pagination: {
+      total: totalOrders,
+      page: pageNumber,
+      productPerPage,
+      totalPages,
+      hasNextPage,
+      hasPreviousPage,
+      nextPage: hasNextPage ? pageNumber + 1 : null,
+      previousPage: hasPreviousPage ? pageNumber - 1 : null,
+    },
+  });
 });
 
 const getProduct = asyncHandler(async (req: Request, res: Response) => {

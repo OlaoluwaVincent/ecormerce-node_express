@@ -11,3 +11,10 @@ const HttpStatus = {
 };
 
 export default HttpStatus;
+
+export const PAYMENT_STATUS = {
+  PENDING: 'Pending',
+  DELIVERED: 'Delivered',
+  REJECTED: 'Rejected',
+  FAILED: 'Failed',
+};

@@ -2,7 +2,14 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 dotenv.config();
 
-const { PORT, MONGOS_CONNECTION_LINK, JWT_SECERT, EXPIRES_IN } = process.env;
+const {
+  PORT,
+  MONGOS_CONNECTION_LINK,
+  JWT_SECERT,
+  EXPIRES_IN,
+  PAYSTACK_SECRET_KEY,
+  PAYSTACK_PUBLIC_KEY,
+} = process.env;
 
 const DBconnection = async () => {
   mongoose.set('strictQuery', false);
@@ -20,4 +27,6 @@ export default {
   port: PORT,
   JWT_SECERT: JWT_SECERT,
   EXPIRES_IN: EXPIRES_IN,
+  PAYSTACK_SECRET_KEY,
+  PAYSTACK_PUBLIC_KEY,
 };
