@@ -16,6 +16,6 @@
     }
   ],
   "env": {
-    "DATABASE_URL": "@database-url"
+    "DATABASE_URL": "SUPABASE_URI"
   }
 }
