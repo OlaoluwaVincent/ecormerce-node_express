@@ -1,6 +1,6 @@
 import express, { Router } from 'express';
 import userController from '../controllers/auth';
-import authenticate, { authorizeRoles } from '../middlewares/authenticate';
+import authenticate, { authorize } from '../middlewares/authenticate';
 import { Role } from '../utils/typings';
 import asyncHandler from '../exceptions/AsyncHandler';
 
@@ -9,7 +9,7 @@ const router: Router = express.Router();
 router.get(
   '/',
   authenticate,
-  authorizeRoles(Role.ADMIN),
+  authorize(Role.ADMIN),
   userController.getAllusers
 );
 router.get('/:id', userController.getSpecificUser);

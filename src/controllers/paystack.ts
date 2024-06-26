@@ -6,7 +6,6 @@ import {
 } from '../utils/typings';
 import { Product } from '@prisma/client';
 import prisma from '../../prisma/prisma';
-import NotFoundException from '../exceptions/NotFoundException';
 import BadRequestException from '../exceptions/BadRequestException';
 import { generateUniqueReference } from '../utils/token';
 import { PAYMENT_STATUS } from '../exceptions/httpStatus';
@@ -15,88 +14,87 @@ const initPayment = async (req: UserRequest, res: Response) => {
   const customer = req.user;
   const products: Product[] = req.body.products;
 
-  if (!products) {
-    throw new BadRequestException('Please provide the products to Order');
+  if (!products || products.length === 0) {
+    throw new BadRequestException('Please provide the products to order');
   }
 
-  const paymentPromises = products.map(async (product) => {
-    const owner = await prisma.user.findUnique({
-      where: { id: product.userId! },
-    });
-    if (!owner) {
-      throw new NotFoundException('User does not exist');
-    }
-    const discount = product.discount
-      ? (product.price / 100) * product.discount
-      : product.price;
+  const totalAmount = products.reduce((acc, pro) => {
+    const discount = pro.discount ? (pro.price * pro.discount) / 100 : 0;
+    const finalPrice = pro.price - discount;
+    return acc + finalPrice;
+  }, 0);
 
-    const amount_in_kobo =
-      (product.discount ? product.price - discount : product.price) * 100;
-
-    return paystackClient.transaction.initialize({
-      amount: amount_in_kobo,
-      email: customer!.email,
-      name: customer!.username,
-      reference: generateUniqueReference(),
-      metadata: {
-        productId: product.id,
-        customer: {
-          email: customer?.email,
-          id: customer?.id,
-          username: customer?.username,
-        },
-      },
-    });
+  const productsId = products.map((pro) => {
+    return { id: pro.id, quantity: pro.quantity };
   });
 
-  const paymentResults = await Promise.all(paymentPromises);
-  res.status(200).json({ success: true, data: paymentResults });
+  const paymentResults = await paystackClient.transaction.initialize({
+    amount: totalAmount * 100, // Paystack expects amount in kobo
+    email: customer!.email,
+    name: customer!.username,
+    reference: generateUniqueReference(),
+    metadata: {
+      productsId,
+      customer: {
+        email: customer?.email,
+        id: customer?.id,
+        username: customer?.username,
+      },
+    },
+  });
+
+  await prisma.transaction.create({
+    data: {
+      amount: totalAmount,
+      transactionRef: paymentResults.data.reference,
+      status: 'pending',
+      user: {
+        connect: { id: customer?.id },
+      },
+    },
+  });
+
+  res.status(200).json(paymentResults.data);
 };
 
 const verifyTransaction = async (req: Request, res: Response) => {
-  const { reference, trxref } = req.query;
-  if (!reference || !trxref) {
-    throw new BadRequestException('Failed to finalize payment');
+  const reference = req.params.id as string;
+
+  if (!reference) {
+    throw new BadRequestException('Please provide transaction reference');
   }
+
   const transaction = await paystackClient.transaction.verify(
     reference as string
   );
-  if (!transaction) {
+
+  if (transaction.data.status !== 'success') {
     throw new BadRequestException('Failed to finalize payment');
   }
 
   const transaction_data: SuccessfulTransactionResponseData = transaction.data;
 
-  if (transaction_data.status === 'success') {
+  await prisma.transaction.update({
+    where: {
+      transactionRef: reference,
+    },
+    data: {
+      status: 'success',
+    },
+  });
+
+  // Create order items
+  for (const productId of transaction_data.metadata.productsId) {
+    await prisma.orderItem.create({
+      data: {
+        productId: productId.id,
+        quantity: productId.quantity,
+        userId: transaction_data.metadata.customer.id,
+      },
+    });
   }
 
-  const transactionTable = await prisma.transaction.create({
-    data: {
-      amount: transaction_data.amount / 100,
-      channel: transaction_data.channel,
-      customer_code: transaction_data.customer.customer_code,
-      customerId: transaction_data.customer.id,
-      paid_at: transaction_data.paid_at,
-      productId: transaction_data.metadata.productId,
-      status: transaction_data.status,
-      transactionId: transaction_data.id,
-      transactionRef: transaction_data.reference,
-      userId: transaction_data.metadata.customer.id,
-    },
-  });
-
-  const order = await prisma.order.create({
-    data: {
-      status: PAYMENT_STATUS.PENDING,
-      totalAmount: transaction_data.amount / 100,
-      orderDate: transaction_data.paid_at,
-      productId: transaction_data.metadata.productId,
-      userId: transaction_data.metadata.customer.id,
-      transactionId: transactionTable.id,
-    },
-  });
-
-  res.status(200).json({ success: true, data: order });
+  res.status(200).json({ message: 'Verified Successfully' });
 };
 
 export default { initPayment, verifyTransaction };

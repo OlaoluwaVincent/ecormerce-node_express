@@ -76,21 +76,6 @@ const ordersForUsers = async (req: Request, res: Response) => {
   res.status(HttpStatus.OK).json(orders);
 };
 
-const ordersForSelllers = async (req: Request, res: Response) => {
-  const sellerId = req.params.id as string;
-  if (!sellerId) {
-    throw new Exception(400, 'Please provide the user_id');
-  }
-  const orders = await prisma.order.findMany({
-    where: {
-      product: {
-        userId: sellerId,
-      },
-    },
-  });
-  res.status(HttpStatus.OK).json(orders);
-};
-
 const order = async (req: Request, res: Response) => {
   const order_id: string = req.params.id as string;
   if (!order_id) {
@@ -127,7 +112,6 @@ const update = async (req: Request, res: Response) => {
 export default {
   ordersForUsers,
   orders,
-  ordersForSelllers,
   order,
   update,
 };

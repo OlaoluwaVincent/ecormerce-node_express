@@ -27,7 +27,7 @@ export interface CloudinaryImages {
 export enum Role {
   USER = 'USER',
   ADMIN = 'ADMIN',
-  EDITOR = 'EDITOR',
+  SELLER = 'SELLER',
 }
 export interface SuccessfulTransactionResponse {
   success: boolean;
@@ -53,7 +53,10 @@ export interface SuccessfulTransactionResponseData {
   currency: string;
   ip_address: string;
   metadata: {
-    productId: string;
+    productsId: {
+      id: string;
+      quantity: number;
+    }[];
     customer: {
       email: string;
       id: string;

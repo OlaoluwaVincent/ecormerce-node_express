@@ -12,11 +12,6 @@ router.get(
   authenticate,
   asyncHandler(orderController.ordersForUsers)
 );
-router.get(
-  '/seller/:id',
-  authenticate,
-  asyncHandler(orderController.ordersForSelllers)
-);
 
 router.get('/:id', authenticate, asyncHandler(orderController.order));
 export default router;

@@ -21,17 +21,20 @@ const authenticate = asyncHandler(
       return res.status(401).json({ message: 'Unauthorized: User not found' });
     }
 
-    req.user = user as UserType;
+    req.user = user as any;
     next();
   }
 );
-export function authorizeRoles(...roles: Role[]) {
+
+// middleware/authorize.ts
+
+export const authorize = (...roles: Role[]) => {
   return (req: UserRequest, res: Response, next: NextFunction) => {
-    if (!req.user || !roles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Forbidden' });
+    if (roles.length > 0 && !roles.includes(req.user?.role as Role)) {
+      return res.status(403).json({ message: 'Forbidden Access' });
     }
     next();
   };
-}
+};
 
 export default authenticate;

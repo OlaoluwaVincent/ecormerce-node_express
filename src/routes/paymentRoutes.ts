@@ -6,9 +6,6 @@ import asyncHandler from '../exceptions/AsyncHandler';
 const router: Router = express.Router();
 
 router.post('/init', authenticate, asyncHandler(paystackContoller.initPayment));
-router.get(
-  '/payment-callback',
-  asyncHandler(paystackContoller.verifyTransaction)
-);
+router.post('/verify/:id', asyncHandler(paystackContoller.verifyTransaction));
 
 export default router;

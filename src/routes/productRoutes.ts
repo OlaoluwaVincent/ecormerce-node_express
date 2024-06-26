@@ -1,7 +1,8 @@
 import express, { Router } from 'express';
 import productController from '../controllers/product';
-import authenticate from '../middlewares/authenticate';
+import authenticate, { authorize } from '../middlewares/authenticate';
 import { upload } from '../utils/cloudinary';
+import { Role } from '../utils/typings';
 
 const router: Router = express.Router();
 
@@ -11,6 +12,7 @@ router.get('/:id', productController.getProduct);
 router.post(
   '/',
   authenticate,
+  authorize(Role.ADMIN, Role.SELLER),
   upload.array('images', 2),
   productController.create
 );
