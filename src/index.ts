@@ -11,7 +11,7 @@ app.use(
   cors({
     origin: [
       'http://localhost:5173',
-      'https://ecommerce-7qaml4wmf-olaoluwa-vincents-projects.vercel.app/',
+      'https://ecommerce-vue-amber.vercel.app/',
     ],
   })
 );
