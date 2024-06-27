@@ -9,10 +9,7 @@ const PORT = process.env.PORT || 9000;
 // Middleware to parse JSON
 app.use(
   cors({
-    origin: [
-      'http://localhost:5173',
-      'https://ecommerce-vue-amber.vercel.app/',
-    ],
+    origin: ['http://localhost:5173', 'https://ecommerce-vue-amber.vercel.app'],
   })
 );
 app.use(express.json());
