@@ -151,7 +151,10 @@ const getUserOrders = asyncHandler(async (req: UserRequest, res: Response) => {
 
 const getOrder = asyncHandler(async (req: UserRequest, res: Response) => {
   const id = req.params.id;
-  const order = prisma.orderItem.findUnique({ where: { id } });
+  const order = await prisma.orderItem.findUnique({
+    where: { id },
+    include: { product: true },
+  });
 
   res.status(200).json(order);
 });

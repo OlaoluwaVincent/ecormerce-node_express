@@ -8,14 +8,17 @@ import { Product } from '@prisma/client';
 import prisma from '../../prisma/prisma';
 import BadRequestException from '../exceptions/BadRequestException';
 import { generateUniqueReference } from '../utils/token';
-import { ORDER_STATUS, PAYMENT_STATUS } from '../exceptions/httpStatus';
+import { ORDER_STATUS } from '../exceptions/httpStatus';
 import { createHmac } from 'crypto';
 import config from '../utils/config';
 import UnauthorizedException from '../exceptions/UnauthorizedException';
 
 const initPayment = async (req: UserRequest, res: Response) => {
+  interface Pro extends Product {
+    originalQuantity: number;
+  }
   const customer = req.user;
-  const products: Product[] = req.body.products;
+  const products: Pro[] = req.body.products;
 
   if (!products || products.length === 0) {
     throw new BadRequestException('Please provide the products to order');
@@ -24,7 +27,7 @@ const initPayment = async (req: UserRequest, res: Response) => {
   const totalAmount = products.reduce((acc, pro) => {
     const discount = pro.discount ? (pro.price * pro.discount) / 100 : 0;
     const finalPrice = pro.price - discount;
-    return acc + finalPrice;
+    return (acc + finalPrice) * pro.originalQuantity;
   }, 0);
 
   const productsId = products.map((pro) => {
@@ -103,6 +106,7 @@ const verifyTransaction = async (req: Request, res: Response) => {
           console.log(error);
         }
       }
+      res.end();
 
       break;
     default:
