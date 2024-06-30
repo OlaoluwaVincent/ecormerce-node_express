@@ -10,14 +10,19 @@ router.get(
   '/',
   authenticate,
   authorize(Role.ADMIN),
-  userController.getAllusers
+  asyncHandler(userController.getAllusers)
 );
-router.get('/:id', userController.getSpecificUser);
 router.post('/register', asyncHandler(userController.createUser));
-router.post('/login', userController.authUser);
-router.post('/refresh-token', userController.refreshToken);
-router.put('/change-password/:id', authenticate, userController.changePassword);
-router.put('/:id', authenticate, userController.updateUser);
-router.delete('/:id', authenticate, userController.deleteUser);
+router.post('/login', asyncHandler(userController.authUser));
+router.post('/refresh-token', asyncHandler(userController.refreshToken));
+router.put(
+  '/change-password/:id',
+  authenticate,
+  asyncHandler(userController.changePassword)
+);
+
+router.get('/:id', asyncHandler(userController.getSpecificUser));
+router.put('/:id', authenticate, asyncHandler(userController.updateUser));
+router.delete('/:id', authenticate, asyncHandler(userController.deleteUser));
 
 export default router;

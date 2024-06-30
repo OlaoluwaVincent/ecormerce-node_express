@@ -7,12 +7,10 @@ import { Role } from '../utils/typings';
 const router: Router = express.Router();
 
 router.get('/', productController.getProducts);
-router.get('/user/:id', productController.getUserProducts);
-router.get('/:id', productController.getProduct);
 router.post(
   '/',
   authenticate,
-  authorize(Role.ADMIN, Role.SELLER),
+  authorize(Role.ADMIN),
   upload.array('images', 2),
   productController.create
 );
@@ -24,5 +22,6 @@ router.put(
   productController.updateProduct
 );
 router.delete('/:id', authenticate, productController.deleteProduct);
+router.get('/:id', productController.getProduct);
 
 export default router;

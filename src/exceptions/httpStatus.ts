@@ -13,8 +13,13 @@ const HttpStatus = {
 export default HttpStatus;
 
 export const PAYMENT_STATUS = {
+  SUCCESSFUL: 'Successful',
+  PENDING: 'Pending',
+  FAILED: 'Failed',
+};
+
+export const ORDER_STATUS = {
   PENDING: 'Pending',
   DELIVERED: 'Delivered',
   REJECTED: 'Rejected',
-  FAILED: 'Failed',
 };

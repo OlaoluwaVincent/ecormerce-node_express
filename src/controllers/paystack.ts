@@ -8,7 +8,10 @@ import { Product } from '@prisma/client';
 import prisma from '../../prisma/prisma';
 import BadRequestException from '../exceptions/BadRequestException';
 import { generateUniqueReference } from '../utils/token';
-import { PAYMENT_STATUS } from '../exceptions/httpStatus';
+import { ORDER_STATUS, PAYMENT_STATUS } from '../exceptions/httpStatus';
+import { createHmac } from 'crypto';
+import config from '../utils/config';
+import UnauthorizedException from '../exceptions/UnauthorizedException';
 
 const initPayment = async (req: UserRequest, res: Response) => {
   const customer = req.user;
@@ -25,7 +28,7 @@ const initPayment = async (req: UserRequest, res: Response) => {
   }, 0);
 
   const productsId = products.map((pro) => {
-    return { id: pro.id, quantity: pro.quantity };
+    return { id: pro.id, quantity: Number(pro.quantity) };
   });
 
   const paymentResults = await paystackClient.transaction.initialize({
@@ -58,43 +61,53 @@ const initPayment = async (req: UserRequest, res: Response) => {
 };
 
 const verifyTransaction = async (req: Request, res: Response) => {
-  const reference = req.params.id as string;
+  const hash = createHmac('sha512', config.PAYSTACK_SECRET_KEY!)
+    .update(JSON.stringify(req.body))
+    .digest('hex');
 
-  if (!reference) {
-    throw new BadRequestException('Please provide transaction reference');
+  const isVerified = hash === req.headers['x-paystack-signature'];
+
+  if (!isVerified)
+    throw new UnauthorizedException('Failed to validate headers');
+  // Process the event
+  const event = req.body as {
+    event: string;
+    data: SuccessfulTransactionResponseData;
+  };
+
+  switch (event.event) {
+    case 'charge.success':
+      // handlde Updates
+      const transaction = await prisma.transaction.update({
+        where: {
+          transactionRef: event.data.reference,
+        },
+        data: {
+          status: event.data.status,
+          channel: event.data.channel,
+          paid_at: event.data.paid_at,
+        },
+      });
+
+      for (const productId of event.data.metadata.productsId) {
+        try {
+          await prisma.orderItem.create({
+            data: {
+              productId: productId.id,
+              quantity: Number(productId.quantity),
+              userId: event.data.metadata.customer.id,
+              deliveryStatus: ORDER_STATUS.PENDING,
+            },
+          });
+        } catch (error) {
+          console.log(error);
+        }
+      }
+
+      break;
+    default:
+      throw new Error('Invalid event received');
   }
-
-  const transaction = await paystackClient.transaction.verify(
-    reference as string
-  );
-
-  if (transaction.data.status !== 'success') {
-    throw new BadRequestException('Failed to finalize payment');
-  }
-
-  const transaction_data: SuccessfulTransactionResponseData = transaction.data;
-
-  await prisma.transaction.update({
-    where: {
-      transactionRef: reference,
-    },
-    data: {
-      status: 'success',
-    },
-  });
-
-  // Create order items
-  for (const productId of transaction_data.metadata.productsId) {
-    await prisma.orderItem.create({
-      data: {
-        productId: productId.id,
-        quantity: productId.quantity,
-        userId: transaction_data.metadata.customer.id,
-      },
-    });
-  }
-
-  res.status(200).json({ message: 'Verified Successfully' });
 };
 
 export default { initPayment, verifyTransaction };

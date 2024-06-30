@@ -3,6 +3,7 @@ import express from 'express';
 import userRouter from './userRoutes';
 import productRouter from './productRoutes';
 import paymentRouter from './paymentRoutes';
+import orderRouter from './orderRoutes';
 
 const router = express.Router();
 
@@ -17,5 +18,6 @@ const router = express.Router();
 router.use('/users', userRouter);
 router.use('/products', productRouter);
 router.use('/payment', paymentRouter);
+router.use('/orders', orderRouter);
 
 export default router;

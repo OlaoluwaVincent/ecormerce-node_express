@@ -4,7 +4,9 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("SUPABASE_URI")
+  url      = env("DATABASE_URL")
+
+  // url      = env("SUPABASE_URI")
 }
 
 model User {
@@ -53,10 +55,11 @@ model Transaction {
 }
 
 model OrderItem {
-  id        String @id @default(uuid())
-  productId String
-  quantity  Int
-  userId    String
+  id             String @id @default(uuid())
+  productId      String
+  quantity       Int
+  userId         String
+  deliveryStatus String
 
   product   Product  @relation(fields: [productId], references: [id])
   user      User     @relation(fields: [userId], references: [id])

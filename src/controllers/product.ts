@@ -16,7 +16,9 @@ const create = asyncHandler(async (req: UserRequest, res: Response) => {
   const { name, price, discount, description, quantity } = req.body;
 
   if (!name || !price || !description || !quantity) {
-    throw new BadRequestException('Please provide all required fields');
+    throw new BadRequestException(
+      'Please provide all required fields: name|price|description|quantity|discount?'
+    );
   }
 
   const images = req.files as Array<Express.Multer.File>;
@@ -57,17 +59,14 @@ const updateProduct = asyncHandler(async (req: UserRequest, res: Response) => {
   });
 
   if (!product) {
-    throw new Exception(HttpStatus.BAD_REQUEST, 'Product was not found');
+    throw new Exception(HttpStatus.NOT_FOUND, 'Product was not found');
   }
 
   if (deletedImages.length) {
     destroyExistingImage(deletedImages);
   }
 
-  let uploadedImages = [] as {
-    url: string;
-    public_id: string;
-  }[];
+  let uploadedImages = [] as CloudinaryImages[];
 
   if (images) {
     uploadedImages = await uploadImages(images);
@@ -83,7 +82,7 @@ const updateProduct = asyncHandler(async (req: UserRequest, res: Response) => {
   const updatedProduct = await prisma.product.update({
     where: { id: product.id },
     data: {
-      images: newImages,
+      images: newImages as any,
       name: name || product.name,
       description: description || product.description,
       price: Number(price) || product.price,
@@ -140,6 +139,9 @@ const getProducts = asyncHandler(async (req: UserRequest, res: Response) => {
     orderBy: orderBy.length ? orderBy : undefined,
     skip: skip,
     take: productPerPage,
+    select: {
+      id: true,
+    },
   });
 
   // Get the total count of products for pagination
@@ -173,7 +175,9 @@ const getProduct = asyncHandler(async (req: Request, res: Response) => {
   });
 
   if (!product) {
-    throw new NotFoundException(`Product was not found ${req.params.id}`);
+    throw new NotFoundException(
+      `Product was not found for this ID => ${req.params.id}`
+    );
   }
 
   res.status(HttpStatus.OK).json(product);
@@ -194,85 +198,10 @@ const deleteProduct = asyncHandler(async (req: Request, res: Response) => {
   res.status(HttpStatus.OK).json({ message: 'Product Deleted' });
 });
 
-const getUserProducts = asyncHandler(
-  async (req: UserRequest, res: Response) => {
-    const userId = req.params.id as string;
-
-    const { page, price, sort, range, discount } = req.query as {
-      sort: string;
-      price: string;
-      page: string;
-      range: string;
-      discount: string;
-    };
-
-    // Default values
-    const pageNumber = parseInt(page) || 1;
-    const productPerPage = 10;
-    const skip = (pageNumber - 1) * productPerPage;
-    const maxPrice = parseFloat(range) || null;
-    const hasDiscount = !!discount;
-
-    // Create a filter object based on the status query parameter
-    const filter: any = {};
-
-    filter.userId = userId;
-
-    if (maxPrice) {
-      filter.price = { lte: maxPrice };
-    }
-    if (hasDiscount) {
-      filter.discount = { gte: 0 };
-    }
-
-    // Create an orderBy object for sorting
-    const orderBy: any[] = [];
-    if (sort) {
-      orderBy.push({ createdAt: sort });
-    }
-    if (price) {
-      orderBy.push({ price: price });
-    }
-
-    // Fetch products with filtering, sorting, and pagination
-    const products = await prisma.product.findMany({
-      where: filter,
-      orderBy: orderBy.length ? orderBy : undefined,
-      skip: skip,
-      take: productPerPage,
-    });
-
-    // Get the total count of products for pagination
-    const totalOrders = await prisma.product.count({ where: filter });
-
-    // Calculate total pages
-    const totalPages = Math.ceil(totalOrders / productPerPage);
-
-    // Determine if there are next and previous pages
-    const hasNextPage = pageNumber < totalPages;
-    const hasPreviousPage = pageNumber > 1;
-
-    res.status(HttpStatus.OK).json({
-      products,
-      pagination: {
-        total: totalOrders,
-        page: pageNumber,
-        productPerPage,
-        totalPages,
-        hasNextPage,
-        hasPreviousPage,
-        nextPage: hasNextPage ? pageNumber + 1 : null,
-        previousPage: hasPreviousPage ? pageNumber - 1 : null,
-      },
-    });
-  }
-);
-
 export default {
   create,
   getProducts,
   getProduct,
   updateProduct,
   deleteProduct,
-  getUserProducts,
 };
