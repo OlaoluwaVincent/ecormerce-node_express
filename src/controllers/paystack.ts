@@ -23,22 +23,26 @@ const initPayment = async (req: UserRequest, res: Response) => {
   if (!products || products.length === 0) {
     throw new BadRequestException('Please provide the products to order');
   }
-
   const totalAmount = products.reduce((acc, pro) => {
     const discount = pro.discount ? (pro.price * pro.discount) / 100 : 0;
     const finalPrice = pro.price - discount;
-    return (acc + finalPrice) * pro.originalQuantity;
+    if (pro.originalQuantity) {
+      return (acc + finalPrice) * pro.originalQuantity;
+    }
+    return acc + finalPrice;
   }, 0);
 
   const productsId = products.map((pro) => {
     return { id: pro.id, quantity: Number(pro.quantity) };
   });
 
+  const reference = generateUniqueReference();
+
   const paymentResults = await paystackClient.transaction.initialize({
     amount: totalAmount * 100, // Paystack expects amount in kobo
     email: customer!.email,
     name: customer!.username,
-    reference: generateUniqueReference(),
+    reference: reference,
     metadata: {
       productsId,
       customer: {

@@ -169,6 +169,7 @@ const updateOrder = asyncHandler(async (req: UserRequest, res: Response) => {
       deliveryStatus: status,
     },
   });
+  res.status(HttpStatus.OK).json('Updatated');
 });
 
 export default {

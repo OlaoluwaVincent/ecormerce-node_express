@@ -1,5 +1,5 @@
 import { NextFunction, Response } from 'express';
-import { Role, UserRequest, UserType } from '../utils/typings';
+import { Role, UserRequest } from '../utils/typings';
 import { verifyToken } from '../utils/token';
 import prisma from '../../prisma/prisma';
 import asyncHandler from '../exceptions/AsyncHandler';

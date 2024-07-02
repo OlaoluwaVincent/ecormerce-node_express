@@ -7,7 +7,7 @@ const router: Router = express.Router();
 
 router.get('/', authenticate, asyncHandler(orderController.getOrders));
 router.get(
-  '/my-order',
+  '/my-order/:id',
   authenticate,
   asyncHandler(orderController.getUserOrders)
 );
